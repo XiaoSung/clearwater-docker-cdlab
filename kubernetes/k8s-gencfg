@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python3 -u
 """
 Generate K8s config from template files
 """
@@ -7,8 +7,7 @@ import argparse
 import os
 import re
 
-
-def parse_file(args, input_file, output_file):
+def parse_file(args,filename, input_file, output_file):
     with open(input_file) as file:
         input_data = file.read()
 
@@ -16,7 +15,23 @@ def parse_file(args, input_file, output_file):
     # ~ means null in yaml
     output_data = input_data.replace("{{IMAGE_PATH}}", args.image_path) \
                   .replace("{{IMAGE_TAG}}", args.image_tag) \
-                  .replace("{{IMAGE_SECRET}}", args.image_secret if (args.image_secret != None) else "~") 
+                  .replace("{{IMAGE_SECRET}}", args.image_secret if (args.image_secret != None) else "~") \
+                  .replace("extensions/v1beta1","apps/v1")
+    if (filename.find("depl")) != -1:
+        if (output_data.find("selector")) == -1:
+            if (filename.find("etcd-depl"))==-1:
+                text = """spec:
+  selector:
+    matchLabels:
+      service: {{replace}}"""
+                text = text.replace("{{replace}}",filename.split('-')[0])
+                output_data = output_data.replace("spec:",text,1)
+            else:
+                text = """spec:
+  selector:
+    matchLabels:
+      instance-type: etcd-pod"""
+                output_data = output_data.replace("spec:",text,1)
 
     with open(output_file, "w") as file:
         file.write(output_data)
@@ -29,7 +44,7 @@ def parse_files_in_dir(args, src, dest):
 
         print("Generate %s from %s" % (output_file_name, template_file_name))
 
-        parse_file(args, os.path.join(src, template_file_name), os.path.join(dest, template_name+".yaml"))
+        parse_file(args, template_name, os.path.join(src, template_file_name), os.path.join(dest, template_name+".yaml"))
 
 
 if __name__ == '__main__':
